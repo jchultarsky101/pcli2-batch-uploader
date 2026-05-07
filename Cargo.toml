@@ -27,6 +27,10 @@ simple_excel_writer = "0.2"
 tempfile = "3"
 zip = "2"
 
+[package.metadata.wix]
+upgrade-guid = "9FFAE864-36C3-474C-8CDA-F4819DD72E86"
+path-guid = "FE111934-CDD4-4288-85EE-CE504C20C48B"
+
 # The profile that 'dist' will build with
 [profile.dist]
 inherits = "release"
