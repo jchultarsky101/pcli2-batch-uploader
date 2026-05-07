@@ -4,6 +4,7 @@ version = "0.2.0"
 edition = "2024"
 description = "A batch uploader CLI for Physna pcli2"
 repository = "https://github.com/jchultarsky101/pcli2-batch-uploader"
+authors = ["Julian Chultarsky <jchultarsky@gmail.com>"]
 license = "MIT"
 readme = "README.md"
 keywords = ["physna", "pcli2", "batch", "uploader", "cli"]
@@ -30,6 +31,8 @@ zip = "2"
 [package.metadata.wix]
 upgrade-guid = "9FFAE864-36C3-474C-8CDA-F4819DD72E86"
 path-guid = "FE111934-CDD4-4288-85EE-CE504C20C48B"
+license = false
+eula = false
 
 # The profile that 'dist' will build with
 [profile.dist]
