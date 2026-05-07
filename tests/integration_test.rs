@@ -12,7 +12,7 @@ fn create_test_xlsx(dir: &TempDir, entries: &[&str]) -> std::path::PathBuf {
 
     wb.write_sheet(&mut sheet, |sw| {
         let mut header = Row::new();
-        header.add_cell("FileName");
+        header.add_cell("File Name");
         sw.append_row(header)?;
 
         for name in entries {
@@ -41,78 +41,101 @@ fn create_test_zip(dir: &TempDir, entries: &[(&str, &[u8])]) -> std::path::PathB
     path
 }
 
-#[test]
-fn run_with_matching_files() {
-    let dir = TempDir::new().unwrap();
-    let manifest = create_test_xlsx(&dir, &["part1.stp", "part2.stp"]);
-    let archive = create_test_zip(&dir, &[("part1.stp", b"data1"), ("part2.stp", b"data2")]);
-
-    Command::cargo_bin("pcli2-batch-uploader")
-        .unwrap()
-        .args(["--manifest", manifest.to_str().unwrap()])
+fn base_cmd(manifest: &std::path::Path, archive: &std::path::Path) -> assert_cmd::Command {
+    let mut cmd = Command::cargo_bin("pcli2-batch-uploader").unwrap();
+    cmd.args(["--manifest", manifest.to_str().unwrap()])
         .args(["--archive", archive.to_str().unwrap()])
+        .args(["--folder", "/models/test"]);
+    cmd
+}
+
+#[test]
+fn run_with_matching_ipt_files() {
+    let dir = TempDir::new().unwrap();
+    let manifest = create_test_xlsx(&dir, &["part1.ipt", "part2.ipt"]);
+    let archive = create_test_zip(&dir, &[("part1.ipt", b"data1"), ("part2.ipt", b"data2")]);
+
+    base_cmd(&manifest, &archive)
+        .arg("--dry-run")
         .assert()
         .success()
-        .stdout(predicate::str::contains("batch upload complete"));
+        .stderr(predicate::str::contains("Dry run complete"));
+}
+
+#[test]
+fn non_inventor_files_are_filtered_out() {
+    let dir = TempDir::new().unwrap();
+    let manifest = create_test_xlsx(&dir, &["drawing.idw", "assembly.iam", "part.ipt"]);
+    let archive = create_test_zip(
+        &dir,
+        &[
+            ("drawing.idw", b"d"),
+            ("assembly.iam", b"a"),
+            ("part.ipt", b"p"),
+        ],
+    );
+
+    base_cmd(&manifest, &archive)
+        .arg("--dry-run")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("2 Inventor files"))
+        .stderr(predicate::str::contains("1 skipped"));
 }
 
 #[test]
 fn run_with_missing_file_in_archive() {
     let dir = TempDir::new().unwrap();
-    let manifest = create_test_xlsx(&dir, &["exists.stp", "missing.stp"]);
-    let archive = create_test_zip(&dir, &[("exists.stp", b"data")]);
+    let manifest = create_test_xlsx(&dir, &["exists.ipt", "missing.ipt"]);
+    let archive = create_test_zip(&dir, &[("exists.ipt", b"data")]);
 
-    Command::cargo_bin("pcli2-batch-uploader")
-        .unwrap()
-        .args(["--manifest", manifest.to_str().unwrap()])
-        .args(["--archive", archive.to_str().unwrap()])
+    base_cmd(&manifest, &archive)
         .assert()
         .success()
-        .stdout(predicate::str::contains("not found in archive"));
+        .stderr(predicate::str::contains("not found in archive"));
 }
 
 #[test]
 fn dry_run_skips_uploads() {
     let dir = TempDir::new().unwrap();
-    let manifest = create_test_xlsx(&dir, &["part.stp"]);
-    let archive = create_test_zip(&dir, &[("part.stp", b"data")]);
+    let manifest = create_test_xlsx(&dir, &["part.ipt"]);
+    let archive = create_test_zip(&dir, &[("part.ipt", b"data")]);
 
-    Command::cargo_bin("pcli2-batch-uploader")
-        .unwrap()
-        .args(["--manifest", manifest.to_str().unwrap()])
-        .args(["--archive", archive.to_str().unwrap()])
+    base_cmd(&manifest, &archive)
         .arg("--dry-run")
         .assert()
         .success()
-        .stdout(predicate::str::contains("dry run"));
+        .stderr(predicate::str::contains("Dry run complete"));
 }
 
 #[test]
 fn missing_manifest_fails() {
     let dir = TempDir::new().unwrap();
-    let archive = create_test_zip(&dir, &[("a.stp", b"data")]);
+    let archive = create_test_zip(&dir, &[("a.ipt", b"data")]);
 
     Command::cargo_bin("pcli2-batch-uploader")
         .unwrap()
         .args(["--manifest", "/nonexistent/manifest.xlsx"])
         .args(["--archive", archive.to_str().unwrap()])
+        .args(["--folder", "/models/test"])
         .assert()
         .failure()
-        .stdout(predicate::str::contains("manifest not found"));
+        .stderr(predicate::str::contains("manifest not found"));
 }
 
 #[test]
 fn missing_archive_fails() {
     let dir = TempDir::new().unwrap();
-    let manifest = create_test_xlsx(&dir, &["a.stp"]);
+    let manifest = create_test_xlsx(&dir, &["a.ipt"]);
 
     Command::cargo_bin("pcli2-batch-uploader")
         .unwrap()
         .args(["--manifest", manifest.to_str().unwrap()])
         .args(["--archive", "/nonexistent/archive.zip"])
+        .args(["--folder", "/models/test"])
         .assert()
         .failure()
-        .stdout(predicate::str::contains("archive not found"));
+        .stderr(predicate::str::contains("archive not found"));
 }
 
 #[test]
@@ -128,13 +151,37 @@ fn no_args_shows_help() {
 fn run_with_empty_manifest() {
     let dir = TempDir::new().unwrap();
     let manifest = create_test_xlsx(&dir, &[]);
-    let archive = create_test_zip(&dir, &[("a.stp", b"data")]);
+    let archive = create_test_zip(&dir, &[("a.ipt", b"data")]);
+
+    base_cmd(&manifest, &archive)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("Nothing to process"));
+}
+
+#[test]
+fn manifest_with_only_non_inventor_files_has_nothing_to_process() {
+    let dir = TempDir::new().unwrap();
+    let manifest = create_test_xlsx(&dir, &["drawing.idw", "report.pdf"]);
+    let archive = create_test_zip(&dir, &[("drawing.idw", b"d"), ("report.pdf", b"r")]);
+
+    base_cmd(&manifest, &archive)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("Nothing to process"));
+}
+
+#[test]
+fn missing_folder_arg_fails() {
+    let dir = TempDir::new().unwrap();
+    let manifest = create_test_xlsx(&dir, &["part.ipt"]);
+    let archive = create_test_zip(&dir, &[("part.ipt", b"data")]);
 
     Command::cargo_bin("pcli2-batch-uploader")
         .unwrap()
         .args(["--manifest", manifest.to_str().unwrap()])
         .args(["--archive", archive.to_str().unwrap()])
         .assert()
-        .success()
-        .stdout(predicate::str::contains("nothing to process"));
+        .failure()
+        .stderr(predicate::str::contains("--folder"));
 }
