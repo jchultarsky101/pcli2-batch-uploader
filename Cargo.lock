@@ -760,7 +760,7 @@ dependencies = [
 
 [[package]]
 name = "pcli2-batch-uploader"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_cmd",
  "calamine",
