@@ -33,9 +33,9 @@
 
 1. A **PLM system** produces an Excel manifest (`.xls` or `.xlsx`) listing files that have changed
 2. The changed files are packaged into a **ZIP archive**
-3. This tool reads the manifest, locates each `.ipt` file (AutoCAD Inventor) in the archive, extracts it, and uploads it via **pcli2**
+3. This tool reads the manifest, locates each Autodesk Inventor file in the archive, extracts it, and uploads it via **pcli2**
 
-Only `.ipt` files are processed. All other file types in the manifest are automatically filtered out.
+Only Inventor files (`.ipt` parts and `.iam` assemblies) are processed. All other file types in the manifest are automatically filtered out.
 
 ## Prerequisites
 
@@ -121,7 +121,7 @@ pcli2-batch-uploader --manifest <MANIFEST> --archive <ARCHIVE> --folder <FOLDER>
 | `--archive` | `-z` | Yes | Path to the ZIP archive containing the files |
 | `--folder` | `-f` | Yes | Physna folder path where files will be uploaded |
 | `--dry-run` | | No | Simulate uploads without invoking pcli2 |
-| `--verbose` | `-v` | No | Increase log verbosity (`-v` for debug, `-vv` for trace) |
+| `--verbose` | `-v` | No | Increase log verbosity (`-v` for info, `-vv` for debug, `-vvv` for trace) |
 | `--help` | `-h` | No | Print help |
 | `--version` | `-V` | No | Print version |
 
@@ -129,7 +129,7 @@ pcli2-batch-uploader --manifest <MANIFEST> --archive <ARCHIVE> --folder <FOLDER>
 
 #### Basic upload
 
-Upload all `.ipt` files listed in the manifest to a Physna folder:
+Upload all Inventor files listed in the manifest to a Physna folder:
 
 **macOS / Linux:**
 
@@ -154,9 +154,20 @@ pcli2-batch-uploader --manifest changes.xls --archive parts.zip --folder /models
 This will print the exact `pcli2 asset create` command for each file that would be uploaded, allowing you to verify the operation before committing to it. Example output:
 
 ```
-INFO pcli2_batch_uploader::uploader: dry run — would execute file_name=part.ipt command=pcli2 asset create --file /tmp/.tmpABC123/part.ipt --folder-path /models/dahu --override --restore-metadata
-INFO pcli2_batch_uploader: skipped file_name=part.ipt reason=dry run
-INFO pcli2_batch_uploader: batch upload complete total=1 success=0 skipped=1 failed=0 missing=0
+📋  Manifest: 130 total rows, 68 Inventor files (.ipt/.iam), 62 skipped
+📦  Archive:  38 files indexed
+⚠️  65 files not found in archive
+
+🔍  Dry run — previewing 3 commands:
+
+   ▶ pcli2 asset create --file /tmp/.tmpABC123/part1.ipt --folder-path /models/dahu --override --restore-metadata
+   ▶ pcli2 asset create --file /tmp/.tmpABC123/part2.ipt --folder-path /models/dahu --override --restore-metadata
+   ▶ pcli2 asset create --file /tmp/.tmpABC123/assembly.iam --folder-path /models/dahu --override --restore-metadata
+
+   📋  3 files would be uploaded to /models/dahu
+   🔍  65 not found in archive
+
+   Dry run complete — no files were uploaded.
 ```
 
 #### Verbose output
@@ -171,19 +182,19 @@ pcli2-batch-uploader --manifest changes.xls --archive parts.zip --folder /models
 
 The Excel manifest (`.xls` or `.xlsx`) must contain a column with the header **"File Name"** (case-insensitive). The tool searches the header row to locate this column dynamically, so other columns can be present in any order.
 
-Only `.ipt` files are processed. All other file types are automatically filtered out.
+Only Inventor files (`.ipt` and `.iam`) are processed. All other file types are automatically filtered out.
 
 | ID | Extension | File Name | Revision | State |
 |----|-----------|-----------|----------|-------|
 | 101 | .ipt | part1.ipt | A | Released |
 | 102 | .iam | assembly.iam | B | Released |
-| 103 | .ipt | part2.ipt | C | In Work |
+| 103 | .idw | drawing.idw | C | In Work |
 
-In this example, only `part1.ipt` and `part2.ipt` would be processed. The `.iam` file is ignored.
+In this example, `part1.ipt` and `assembly.iam` would be processed. The `.idw` drawing is ignored.
 
 ### How It Works
 
-1. The manifest is parsed and filtered to `.ipt` files only
+1. The manifest is parsed and filtered to Inventor files (`.ipt`, `.iam`) only
 2. The ZIP archive is opened and its entries are indexed
 3. For each manifest entry found in the archive, the file is extracted to a temporary directory
 4. The extracted file is uploaded via `pcli2 asset create --file <path> --folder-path <folder> --override --restore-metadata`
