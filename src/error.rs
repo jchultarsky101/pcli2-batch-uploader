@@ -11,11 +11,14 @@ pub enum Error {
     #[error("failed to read manifest: {source}")]
     ManifestRead {
         #[source]
-        source: calamine::XlsxError,
+        source: calamine::Error,
     },
 
     #[error("manifest contains no worksheets")]
     ManifestEmpty,
+
+    #[error("manifest missing required column: '{column}'")]
+    ManifestColumnNotFound { column: String },
 
     #[error("failed to open archive: {source}")]
     ArchiveOpen {
@@ -29,6 +32,9 @@ pub enum Error {
         #[source]
         source: zip::result::ZipError,
     },
+
+    #[error("upload failed for '{name}': {reason}")]
+    Upload { name: String, reason: String },
 
     #[error("I/O error: {source}")]
     Io {

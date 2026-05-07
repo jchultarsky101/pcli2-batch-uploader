@@ -31,31 +31,65 @@
 
 **pcli2-batch-uploader** is a command-line tool for uploading files in batch to Physna using the pcli2 pipeline. It implements a crude Change Data Capture (CDC) workflow:
 
-1. A **PLM system** produces an Excel manifest (`.xlsx`) listing files that have changed
+1. A **PLM system** produces an Excel manifest (`.xls` or `.xlsx`) listing files that have changed
 2. The changed files are packaged into a **ZIP archive**
-3. This tool reads the manifest, locates each file in the archive, and uploads it via **pcli2**
+3. This tool reads the manifest, locates each `.ipt` file (AutoCAD Inventor) in the archive, extracts it, and uploads it via **pcli2**
 
-It is designed to be fast, scriptable, and easy to integrate into automation workflows.
+Only `.ipt` files are processed. All other file types in the manifest are automatically filtered out.
+
+## Prerequisites
+
+**pcli2** must be installed and available on your `PATH`. The batch uploader invokes `pcli2 asset create` for each file, so pcli2 must be configured and authenticated before running this tool.
 
 ## Installation
 
-### Pre-built Binaries
+### Option 1: Pre-built Binaries (Recommended)
 
-Download the latest release for your platform from the [Releases](https://github.com/jchultarsky101/pcli2-batch-uploader/releases/latest) page.
+Pre-built binaries are available for macOS, Linux, and Windows. Download the latest release for your platform from the [Releases](https://github.com/jchultarsky101/pcli2-batch-uploader/releases/latest) page.
 
-#### macOS / Linux
+#### macOS (Apple Silicon and Intel)
 
 ```sh
 curl --proto '=https' --tlsv1.2 -LsSf https://github.com/jchultarsky101/pcli2-batch-uploader/releases/latest/download/pcli2-batch-uploader-installer.sh | sh
 ```
 
-#### Windows (PowerShell)
+This installs the binary to `~/.cargo/bin/`. Make sure this directory is in your `PATH`:
+
+```sh
+export PATH="$HOME/.cargo/bin:$PATH"
+```
+
+Verify the installation:
+
+```sh
+pcli2-batch-uploader --version
+```
+
+#### Linux (x86_64 and ARM64)
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/jchultarsky101/pcli2-batch-uploader/releases/latest/download/pcli2-batch-uploader-installer.sh | sh
+```
+
+#### Windows
+
+**PowerShell installer:**
 
 ```powershell
 powershell -ExecutionPolicy ByPass -c "irm https://github.com/jchultarsky101/pcli2-batch-uploader/releases/latest/download/pcli2-batch-uploader-installer.ps1 | iex"
 ```
 
-### Build from Source
+**MSI installer:**
+
+Alternatively, download the `.msi` installer from the [Releases](https://github.com/jchultarsky101/pcli2-batch-uploader/releases/latest) page and run it. This provides a standard Windows installer experience.
+
+Verify the installation:
+
+```powershell
+pcli2-batch-uploader --version
+```
+
+### Option 2: Build from Source
 
 Requires [Rust](https://rustup.rs/) (edition 2024).
 
@@ -65,45 +99,97 @@ cd pcli2-batch-uploader
 cargo build --release
 ```
 
-The binary will be at `target/release/pcli2-batch-uploader`.
+The binary will be at `target/release/pcli2-batch-uploader`. You can copy it to a directory in your `PATH`:
+
+```sh
+cp target/release/pcli2-batch-uploader /usr/local/bin/
+```
+
+On Windows, the binary will be at `target\release\pcli2-batch-uploader.exe`.
 
 ## Usage
 
 ```
-pcli2-batch-uploader [OPTIONS] --manifest <MANIFEST> --archive <ARCHIVE>
-
-Options:
-  -m, --manifest <MANIFEST>  Path to the Excel manifest file (.xlsx)
-  -z, --archive <ARCHIVE>    Path to the ZIP archive containing the files
-  -v, --verbose...           Enable verbose output
-      --dry-run              Dry run — simulate uploads without invoking pcli2
-  -h, --help                 Print help
-  -V, --version              Print version
+pcli2-batch-uploader --manifest <MANIFEST> --archive <ARCHIVE> --folder <FOLDER> [OPTIONS]
 ```
 
-### Example
+### Arguments
+
+| Argument | Short | Required | Description |
+|----------|-------|----------|-------------|
+| `--manifest` | `-m` | Yes | Path to the Excel manifest file (`.xls` or `.xlsx`) |
+| `--archive` | `-z` | Yes | Path to the ZIP archive containing the files |
+| `--folder` | `-f` | Yes | Physna folder path where files will be uploaded |
+| `--dry-run` | | No | Simulate uploads without invoking pcli2 |
+| `--verbose` | `-v` | No | Increase log verbosity (`-v` for debug, `-vv` for trace) |
+| `--help` | `-h` | No | Print help |
+| `--version` | `-V` | No | Print version |
+
+### Examples
+
+#### Basic upload
+
+Upload all `.ipt` files listed in the manifest to a Physna folder:
+
+**macOS / Linux:**
 
 ```sh
-pcli2-batch-uploader --manifest changes.xlsx --archive parts.zip
+pcli2-batch-uploader --manifest changes.xls --archive parts.zip --folder /models/dahu
 ```
 
-### Dry Run
+**Windows (PowerShell):**
 
-Preview what would be uploaded without actually invoking pcli2:
+```powershell
+pcli2-batch-uploader.exe --manifest changes.xls --archive parts.zip --folder /models/dahu
+```
+
+#### Dry run
+
+Preview the pcli2 commands that would be executed without actually uploading anything:
 
 ```sh
-pcli2-batch-uploader --manifest changes.xlsx --archive parts.zip --dry-run
+pcli2-batch-uploader --manifest changes.xls --archive parts.zip --folder /models/dahu --dry-run
+```
+
+This will print the exact `pcli2 asset create` command for each file that would be uploaded, allowing you to verify the operation before committing to it. Example output:
+
+```
+INFO pcli2_batch_uploader::uploader: dry run — would execute file_name=part.ipt command=pcli2 asset create --file /tmp/.tmpABC123/part.ipt --folder-path /models/dahu --override --restore-metadata
+INFO pcli2_batch_uploader: skipped file_name=part.ipt reason=dry run
+INFO pcli2_batch_uploader: batch upload complete total=1 success=0 skipped=1 failed=0 missing=0
+```
+
+#### Verbose output
+
+Use `-v` for debug-level logging or `-vv` for trace-level logging:
+
+```sh
+pcli2-batch-uploader --manifest changes.xls --archive parts.zip --folder /models/dahu -v
 ```
 
 ### Manifest Format
 
-The Excel manifest (`.xlsx`) should have file names in the first column, with a header row:
+The Excel manifest (`.xls` or `.xlsx`) must contain a column with the header **"File Name"** (case-insensitive). The tool searches the header row to locate this column dynamically, so other columns can be present in any order.
 
-| FileName     |
-|-------------|
-| part1.stp   |
-| part2.stp   |
-| assembly.step |
+Only `.ipt` files are processed. All other file types are automatically filtered out.
+
+| ID | Extension | File Name | Revision | State |
+|----|-----------|-----------|----------|-------|
+| 101 | .ipt | part1.ipt | A | Released |
+| 102 | .iam | assembly.iam | B | Released |
+| 103 | .ipt | part2.ipt | C | In Work |
+
+In this example, only `part1.ipt` and `part2.ipt` would be processed. The `.iam` file is ignored.
+
+### How It Works
+
+1. The manifest is parsed and filtered to `.ipt` files only
+2. The ZIP archive is opened and its entries are indexed
+3. For each manifest entry found in the archive, the file is extracted to a temporary directory
+4. The extracted file is uploaded via `pcli2 asset create --file <path> --folder-path <folder> --override --restore-metadata`
+5. A summary is printed showing the total, successful, skipped, failed, and missing counts
+
+Files listed in the manifest but not found in the archive are logged as warnings and skipped. Upload failures for individual files do not stop the batch -- all remaining files are still processed.
 
 ## Contributing
 

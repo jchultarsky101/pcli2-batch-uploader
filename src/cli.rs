@@ -16,6 +16,10 @@ pub struct Cli {
     #[arg(short = 'z', long)]
     pub archive: PathBuf,
 
+    /// Physna folder path for uploading files
+    #[arg(short, long)]
+    pub folder: String,
+
     /// Enable verbose output
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
