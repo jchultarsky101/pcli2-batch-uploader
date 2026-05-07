@@ -12,6 +12,9 @@ categories = ["command-line-utilities"]
 [dependencies]
 calamine = "0.26"
 clap = { version = "4", features = ["derive"] }
+console = "0.15"
+indicatif = "0.17"
+tempfile = "3"
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
