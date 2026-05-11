@@ -156,7 +156,11 @@ This will print the exact `pcli2 asset create` command for each file that would 
 ```
 📋  Manifest: 130 total rows, 68 Inventor files (.ipt/.iam), 62 skipped
 📦  Archive:  38 files indexed
-⚠️  65 files not found in archive
+
+⚠️  65 manifest files not found in archive:
+   • bracket.ipt
+   • housing.iam
+   • ... (remaining files listed)
 
 🔍  Dry run — previewing 3 commands:
 
@@ -200,7 +204,7 @@ In this example, `part1.ipt` and `assembly.iam` would be processed. The `.idw` d
 4. The extracted file is uploaded via `pcli2 asset create --file <path> --folder-path <folder> --override --restore-metadata`
 5. A summary is printed showing the total, successful, skipped, failed, and missing counts
 
-Files listed in the manifest but not found in the archive are logged as warnings and skipped. Upload failures for individual files do not stop the batch -- all remaining files are still processed.
+Files listed in the manifest but not found in the archive are printed by name so you can identify what is missing, and skipped. Upload failures for individual files do not stop the batch -- all remaining files are still processed.
 
 ## Contributing
 

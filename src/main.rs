@@ -91,10 +91,17 @@ fn run(cli: &Cli) -> Result<(), error::Error> {
 
     if missing_count > 0 {
         eprintln!(
-            "{}  {} files not found in archive",
+            "\n{}  {} manifest files not found in archive:",
             style("\u{26a0}\u{fe0f}").dim(),
             style(missing_count).yellow().bold()
         );
+        for entry in &missing {
+            eprintln!(
+                "   {} {}",
+                style("\u{2022}").yellow(),
+                style(&entry.file_name).yellow()
+            );
+        }
     }
 
     if uploadable.is_empty() {
