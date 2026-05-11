@@ -29,9 +29,18 @@ pub fn upload(
         reason: "file path contains invalid UTF-8".to_string(),
     })?;
 
+    let quote = |s: &str| -> String {
+        if s.contains(' ') {
+            format!("\"{s}\"")
+        } else {
+            s.to_string()
+        }
+    };
+
     let command = format!(
         "pcli2 asset create --file {} --folder-path {} --override --restore-metadata",
-        file_path_str, folder
+        quote(file_path_str),
+        quote(folder)
     );
 
     if dry_run {
